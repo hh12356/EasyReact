@@ -50,9 +50,10 @@ const Month = () => {
 
     //当前月按日来做分组
     const dayGroup = useMemo(()=>{
-      //return计算之后的值
-      const groupData = _.groupBy(currentMonthList,(item)=>dayjs(item.date).format('YYYY年MM月DD日'))
-      const keys = Object.keys(groupData)
+      //先按时间倒序排，保证单日列表越靠近现在越靠上
+      const sorted = [...currentMonthList].sort((a,b) => dayjs(b.date) - dayjs(a.date))
+      const groupData = _.groupBy(sorted,(item)=>dayjs(item.date).format('YYYY年MM月DD日'))
+      const keys = Object.keys(groupData).sort((a,b) => dayjs(b,'YYYY年MM月DD日') - dayjs(a,'YYYY年MM月DD日'))
       return {
         groupData,
         keys

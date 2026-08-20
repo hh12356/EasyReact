@@ -1,13 +1,13 @@
 import classNames from 'classnames'
 import './index.scss'
 import { useMemo, useState } from 'react'
-import { billTypeToName } from '@/contains'
+import { billTypeToName } from '@/contants'
 import Icon from '@/components/Icon'
 
 const DailyBill = ({ date, billList }) => {
   const dayResult = useMemo(()=>{
-    const pay = billList.filter(item=>item.type=='pay').reduce((a,c)=>a+c.money,0)
-    const income = billList.filter(item=>item.type=='income').reduce((a,c)=>a+c.money,0)
+    const pay = billList.filter(item=>item.type=='pay').reduce((a,c)=>a+Number(c.money),0)
+    const income = billList.filter(item=>item.type=='income').reduce((a,c)=>a+Number(c.money),0)
     return{
           pay,
           income,
