@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Card, Breadcrumb, Form, Button, Radio, DatePicker, Select, Popconfirm } from 'antd'
 // 引入汉化包 时间选择器显示中文
 import locale from 'antd/es/date-picker/locale/zh_CN'
@@ -9,13 +9,14 @@ import { EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import img404 from '@/assets/error.png'
 import { useChannel } from '@/hooks/useChannel'
 import { useEffect, useState } from 'react'
-import { getArticleListAPI } from '@/apis/article'
+import { delArticleAPI, getArticleListAPI } from '@/apis/article'
 
 const { Option } = Select
 const { RangePicker } = DatePicker
 
 const Article = () => {
-    const {channelList} = useChannel()
+  const navigate = useNavigate()
+  const {channelList} = useChannel()
 
   const status = {
     1: <Tag color='warning'>待审核</Tag>,
@@ -64,12 +65,13 @@ const Article = () => {
       render: data => {
         return (
           <Space size="middle">
-            <Button type="primary" shape="circle" icon={<EditOutlined />}/>
+            <Button type="primary" shape="circle" icon={<EditOutlined />} onClick={()=>navigate(`/publish?id=${data.id}`)}/>
             <Popconfirm
               title="删除文章"
-              description="确认要删除当前文章吗?"
-              okText="Yes"
-              cancelText="No"
+              description='确认删除这篇文章吗？'
+              onConfirm={()=>onConfirm(data)}
+              okText='Yes'
+              cancelText='No'
             >
               <Button
                 type="primary"
@@ -83,27 +85,56 @@ const Article = () => {
       }
     }
   ]
-  const data = [
-    {
-        id:'8218',
-        cover:{
-            image:[],
-        }
-    }
-  ]
 
+  //筛选功能
+  //1.准备参数
+  const [reqData,setReqData] = useState({
+    status:'',
+    channel_id:'',
+    begin_pubdate:'',
+    end_pubdate:'',
+    page:1,
+    per_page:6
+  })
+
+  //2.获取当前筛选数据
+  const onFinish = (formValue)=>{
+    //3.把表单收集数据放到参数中
+    setReqData({
+      ...reqData,
+      channel_id:formValue.channel_id,
+      status:formValue.status,
+      begin_pubdate:formValue.date[0].format('YYYY-MM-DD'),
+      end_pubdate:formValue.date[1].format('YYYY-MM-DD'),
+    })
+    //4.重新拉取文章列表和渲染table
+  }
+  
   //获取文章列表
   const [list,setList] = useState([])
   const [count,setCount] = useState(0)
   useEffect(()=>{
     async function getList() {
-        const res = await getArticleListAPI()
+        const res = await getArticleListAPI(reqData)
         setList(res.data.results)
         setCount(res.data.total_count)
     }
     getList()
-  },[])
+  },[reqData])
 
+  //分页
+  const onPageChange = (page)=>{
+    setReqData({
+      ...reqData,
+      page:page
+    })
+  }
+
+  //删除
+  const onConfirm = async (data)=>{
+    await delArticleAPI(data.id)
+    setReqData({...reqData})
+  }
 
   return (
     <div>
@@ -116,7 +147,7 @@ const Article = () => {
         }
         style={{ marginBottom: 20 }}
       >
-        <Form initialValues={{ status:null }}>
+        <Form initialValues={{ status:'' }} onFinish={onFinish}>
           <Form.Item label="状态" name="status">
             <Radio.Group>
               <Radio value={null}>全部</Radio>
@@ -149,7 +180,11 @@ const Article = () => {
       </Card>
       {/* 表格区域 */}
       <Card title={`根据筛选条件共查询到 ${count} 条结果：`}>
-        <Table rowKey="id" columns={columns} dataSource={list}/>
+        <Table rowKey="id" columns={columns} dataSource={list} pagination={{
+          total:count,
+          pageSize:reqData.per_page,
+          onChange:onPageChange
+        }}/>
       </Card>
     </div>
   )

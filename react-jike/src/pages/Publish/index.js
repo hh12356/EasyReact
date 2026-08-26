@@ -11,22 +11,23 @@ import {
   message
 } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import './index.scss'
 
 import ReactQuill from 'react-quill-new'
 import 'react-quill-new/dist/quill.snow.css'
 import { useEffect, useState } from 'react'
-import { createArticleAPI, getChannelAPI } from '@/apis/article'
+import { createArticleAPI, getArticleById, getChannelAPI, updateArticleAPI } from '@/apis/article'
 import { useChannel } from '@/hooks/useChannel'
 
 const { Option } = Select
 
 const Publish = () => {
   const { channelList } = useChannel()
+  const navigate = useNavigate()
 
     //提交表单
-    const onFinish = (formValue)=>{
+    const onFinish = async (formValue)=>{
         //校验封面数量是否匹配
         if(imageList.length!==imageType) return message.warning('封面类型与图片数量不匹配')
         const {title,content,channel_id} = formValue
@@ -36,12 +37,27 @@ const Publish = () => {
             content,
             cover:{
                 type:imageType,//当前的封面模式
-                image:imageList.map(item=>item.response.data.url)//图片列表
+                images:imageList.map(item=>{
+                  if(item.response){
+                    return item.response.data.url
+                  }
+                  else{
+                    return item.url
+                  }
+                })//图片列表
             },
             channel_id
         }
         //2.调用接口提交
-        createArticleAPI(reqData)
+        if(articleId){
+          await updateArticleAPI({...reqData,id:articleId})
+        }
+        else{
+          await createArticleAPI(reqData)
+        }
+        //3.弹出成功提示并跳转
+        message.success(`${articleId?'修改':'发布'}成功`)
+        navigate('/article')
     }
 
     //上传回调
@@ -60,6 +76,32 @@ const Publish = () => {
       setImageList([])
     },[imageType])
 
+    //回填处理
+    const [searchParams] = useSearchParams()
+    const articleId = searchParams.get('id')
+    //获取实例
+    const [form] = Form.useForm()
+    useEffect(()=>{
+      //1.通过id获取数据
+      async function getArticleDetail(){
+        const res = await getArticleById(articleId)
+        const data = res.data
+        const cover = data.cover
+        form.setFieldsValue({
+          ...data,
+          type:cover.type
+        })
+        //无法回填封面原因：数据结构问题 set方法 -> {type:3}  {cover:{type:3}}
+        //回填图片列表
+        setImageType(cover.type)
+        //显示图片
+        setImageList(cover.images.map(url=>{
+          return {url}
+        }))
+      }
+      if(articleId){getArticleDetail()}
+      //2.调用实例方法 完成回填
+    },[articleId,form])
 
   return (
     <div className="publish">
@@ -67,7 +109,7 @@ const Publish = () => {
         title={
           <Breadcrumb items={[
             { title: <Link to={'/'}>首页</Link> },
-            { title: '发布文章' },
+            { title: `${articleId?'编辑':'发布'}文章` },
           ]}
           />
         }
@@ -77,6 +119,7 @@ const Publish = () => {
           wrapperCol={{ span: 16 }}
           initialValues={{ type: 1 }}
           onFinish={onFinish}
+          form={form}
         >
           <Form.Item
             label="标题"
